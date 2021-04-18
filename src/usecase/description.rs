@@ -56,6 +56,6 @@ pub enum Op {
 }
 
 pub enum Condition {
-    Ref(u16, String),
+    Ref(u16),
     Cond(Op, Condition, Condition),
 }
