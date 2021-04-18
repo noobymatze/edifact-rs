@@ -3,6 +3,7 @@
 extern crate combine;
 
 mod mig;
+mod usecase;
 
 use std::include_str;
 use std::path::PathBuf;
