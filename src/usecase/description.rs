@@ -1,29 +1,36 @@
 use crate::mig::either::Either;
 
+/// A manual defines multiple use cases for a given message
+/// (e.g. UTILMD) and version (e.g. 5.1a).
+pub struct Manual {
+    message: String,
+    version: String,
+    use_cases: Vec<UseCase>,
+}
+
 ///
 pub struct UseCase {
-    pub ident: Identifier,
+    pub ident: Option<Identifier>,
     pub data: Vec<Either<Segmentgroup, Segment>>,
 }
 
 /// An `Identifier` is used to identify a use case, contained in
-/// one or more EDIFACT messages.
+/// one or more EDIFACT messages of certain types.
 pub struct Identifier {
-    pub path: Vec<String>,
     pub value: String,
 }
 
 pub struct Segment {
     pub order: u16,
     pub name: String,
-    pub properties: Vec<Necessity>,
+    pub necessities: Vec<Necessity>,
     pub elements: Vec<DataElement>,
 }
 
 pub struct Segmentgroup {
     pub order: u16,
     pub name: String,
-    pub properties: Vec<Necessity>,
+    pub necessities: Vec<Necessity>,
     pub segments: Vec<Either<Segmentgroup, Segment>>,
 }
 
