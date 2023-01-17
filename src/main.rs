@@ -7,27 +7,26 @@ mod usecase;
 
 use std::include_str;
 use std::path::PathBuf;
-use structopt::StructOpt;
 use std::fs::File;
+use clap::Parser;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 #[structopt(
     name = "edifact",
     about = "An EDIFACT parser for the edi@energy subset"
 )]
-struct Opt {
-    #[structopt(
-        short = "f",
+struct Cli {
+    #[arg(
+        short = 'f',
         long = "file",
         help = "EDIFACT file to be parsed",
-        parse(from_os_str)
     )]
     file: PathBuf,
 }
 
 fn main() -> std::io::Result<()> {
     let interchange = include_str!("../APERAK.json");
-    let opts = Opt::from_args();
+    let opts = Cli::parse();
     let desc: mig::description::Interchange =
         serde_json::from_str(interchange).expect("Works");
     // let interchange = mig::parse_file(opts.file).expect("Works2");

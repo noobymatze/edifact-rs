@@ -64,5 +64,5 @@ pub enum Op {
 
 pub enum Condition {
     Ref(u16),
-    Cond(Op, Condition, Condition),
+    Cond(Op, Box<Condition>, Box<Condition>),
 }
