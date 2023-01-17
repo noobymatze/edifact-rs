@@ -4,41 +4,32 @@ extern crate combine;
 
 mod mig;
 mod usecase;
+mod cli;
 
 use std::include_str;
 use std::path::PathBuf;
 use std::fs::File;
 use clap::Parser;
 
-#[derive(Debug, Parser)]
-#[structopt(
-    name = "edifact",
-    about = "An EDIFACT parser for the edi@energy subset"
-)]
-struct Cli {
-    #[arg(
-        short = 'f',
-        long = "file",
-        help = "EDIFACT file to be parsed",
-    )]
-    file: PathBuf,
-}
-
-fn main() -> std::io::Result<()> {
-    let interchange = include_str!("../APERAK.json");
-    let opts = Cli::parse();
-    let desc: mig::description::Interchange =
-        serde_json::from_str(interchange).expect("Works");
-    // let interchange = mig::parse_file(opts.file).expect("Works2");
-    // match_interchange(&desc, interchange);
-    let mut file = File::open(opts.file)?;
-    let result = mig::decode(vec![desc], &mut file);
-    match result {
-        Ok(interchange) => println!("{:?}", interchange),
-        Err(errors) => println!("{}", errors)
+fn main() {
+    let cli = cli::parse();
+    if let Err(error) = cli::run(cli) {
+        println!("{}", error)
     }
+    //let interchange = include_str!("../APERAK.json");
+    //let opts = Cli::parse();
+    //let desc: mig::description::Interchange =
+    //    serde_json::from_str(interchange).expect("Works");
+    //// let interchange = mig::parse_file(opts.file).expect("Works2");
+    //// match_interchange(&desc, interchange);
+    //let mut file = File::open(opts.file)?;
+    //let result = mig::decode(vec![desc], &mut file);
+    //match result {
+    //    Ok(interchange) => println!("{:?}", interchange),
+    //    Err(errors) => println!("{}", errors)
+    //}
 
-    Ok(())
+    //Ok(())
 }
 
 // ""
