@@ -6,10 +6,6 @@ mod mig;
 mod usecase;
 mod cli;
 
-use std::include_str;
-use std::path::PathBuf;
-use std::fs::File;
-use clap::Parser;
 
 fn main() {
     let cli = cli::parse();

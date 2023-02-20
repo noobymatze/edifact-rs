@@ -1,8 +1,9 @@
-use clap::Parser;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
-use std::process;
-use std::process::ExitStatus;
+
+use clap::Parser;
+
+use crate::mig::spec;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -47,19 +48,7 @@ pub fn parse() -> Cli {
 pub fn run(cli: Cli) -> Result<(), Error> {
     match cli.command {
         Command::Mig(Mig::Parse { file }) => {
-            let file = file.to_str().expect("Expect this to work.");
-            let output = process::Command::new("pdftotext")
-                .arg("-layout")
-                .arg(file)
-                .arg("-")
-                .output()
-                .expect("Failed to execute pdftotext");
-
-            println!("{}", String::from_utf8(output.stderr).expect("Works"));
-
-            let content =
-                String::from_utf8(output.stdout).expect("This to work.");
-            println!("{}", content)
+            println!("{:?}", spec::parse(file));
         }
     }
     Ok(())

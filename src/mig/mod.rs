@@ -15,6 +15,7 @@ pub mod either;
 pub mod error;
 mod decode;
 pub mod encode;
+pub mod spec;
 
 use std::io::Read;
 use crate::mig::decode::value;
