@@ -39,12 +39,15 @@ use std::path::Path;
 use std::process;
 use std::process::ExitStatus;
 
-use nom::bytes::complete::{tag, take_while, take_while1};
-use nom::character::complete::{line_ending, multispace0, newline, space0};
+use nom::branch::alt;
+use nom::bytes::complete::{tag, take_until, take_while, take_while1};
+use nom::character::complete::{
+    line_ending, multispace0, newline, not_line_ending, space0,
+};
 use nom::combinator::{map, map_res};
 use nom::error::{convert_error, ContextError, ParseError, VerboseError};
 use nom::multi::many_till;
-use nom::sequence::tuple;
+use nom::sequence::{delimited, tuple};
 use nom::{
     AsChar, Compare, Finish, IResult, InputIter, InputLength, InputTake,
     InputTakeAtPosition, Slice,
@@ -148,6 +151,76 @@ fn start_of_diagram(input: &str) -> ParseResult<&str, ()> {
 
 fn start_of_changelog(input: &str) -> ParseResult<&str, ()> {
     start_of("Änderungshistorie")(input)
+}
+
+/// Parsing the message structure is straight forward. The only caveat to
+/// consider is to filter out the resulting lines, which are part of the
+/// footer.
+fn message_structure(input: &str) -> ParseResult<&str, String> {
+    let is_relevant = |l: &str| {
+        !l.starts_with("Nachrichtenstruktur")
+            && !is_part_of_footer(l)
+            && !l.starts_with("BDEW")
+            && l != ""
+    };
+
+    let (input, (lines, _)) = many_till(
+        delimited(space0, not_line_ending, line_ending),
+        start_of_diagram,
+    )(input)?;
+
+    let filtered_lines = lines
+        .iter()
+        .map(|l| l.trim_start().to_string())
+        .filter(|l| is_relevant(l))
+        .collect::<Vec<_>>();
+
+    let result = filtered_lines.join("\n");
+
+    Ok((input, result))
+}
+
+fn is_part_of_footer(line: &str) -> bool {
+    let trimmed_line = line.trim_start();
+    trimmed_line.starts_with("Zähler =")
+        || trimmed_line.starts_with("Bez =")
+        || trimmed_line.starts_with("Nr =")
+        || trimmed_line.starts_with("MaxWdh =")
+        || trimmed_line.starts_with("EDI@Energy")
+}
+
+// SEGMENTS
+
+fn end_of_segment_layout(input: &str) -> ParseResult<&str, ()> {
+    map(alt((start_of_segment_layout, end_of_segment_layout)), |_| ())(input)
+}
+
+//fn start_of_elements(input: &str) -> ParseResult<&str, ()> {}
+
+fn standard_bdew_line(input: &str) -> ParseResult<&str, ()> {
+    map(
+        tuple((
+            tuple((space0, tag("Standard"))),
+            tuple((space0, tag("BDEW"))),
+        )),
+        |_| (),
+    )(input)
+}
+
+fn segment_column_headers(input: &str) -> ParseResult<&str, ()> {
+    map(
+        tuple((
+            tuple((space0, tag("Zähler"))),
+            tuple((space0, tag("Nr"))),
+            tuple((space0, tag("Bez"))),
+            tuple((space0, tag("St"))),
+            tuple((space0, tag("MaxWdh"))),
+            tuple((space0, tag("St"))),
+            tuple((space0, tag("Ebene"))),
+            tuple((space0, tag("Name"))),
+        )),
+        |_| (),
+    )(input)
 }
 
 #[cfg(test)]
