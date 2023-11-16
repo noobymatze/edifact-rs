@@ -34,21 +34,21 @@
 //! about an error case, thus mitigating the non-descriptive error
 //! handling by attoparsec, as well as catching an error for every
 //! segment, instead of just for the first, if doing one pass.
-use std::ops::{Index, Range, RangeFrom, RangeTo};
+use std::ops::{Range, RangeFrom, RangeTo};
 use std::path::Path;
 use std::process;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_until, take_while, take_while1};
+use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::{
-    line_ending, multispace0, newline, not_line_ending, space0,
+    line_ending, multispace0, not_line_ending, space0,
 };
-use nom::combinator::{map, map_res};
-use nom::error::{convert_error, ContextError, ParseError, VerboseError};
+use nom::combinator::{map};
+use nom::error::{convert_error, VerboseError};
 use nom::multi::many_till;
 use nom::sequence::{delimited, tuple};
 use nom::{
-    AsChar, Compare, Finish, IResult, InputIter, InputLength, InputTake,
+    AsChar, Compare, IResult, InputIter, InputLength, InputTake,
     InputTakeAtPosition, Slice,
 };
 
@@ -95,7 +95,7 @@ pub fn parse_string(input: String) -> Result<desc::Interchange, Error> {
         Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
             println!("Error:\n{}", convert_error(input.as_str(), e));
         }
-        Err(error) => println!("Error happened"),
+        Err(_error) => println!("Error happened"),
         Ok((_, wohoo)) => {
             println!("{}", wohoo)
         }
