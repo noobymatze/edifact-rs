@@ -37,7 +37,6 @@
 use std::ops::{Index, Range, RangeFrom, RangeTo};
 use std::path::Path;
 use std::process;
-use std::process::ExitStatus;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until, take_while, take_while1};
@@ -58,24 +57,33 @@ use crate::mig::description as desc;
 #[derive(Debug)]
 pub enum Error {
     PdfToText(String),
+    PathCannotBeConvertedToStr(),
+    CouldNotReadTxtFile(std::io::Error),
 }
 
 /// Parses the given [path] into a [desc::Interchange].
 pub fn parse<P: AsRef<Path>>(path: P) -> Result<desc::Interchange, Error> {
-    let file = path.as_ref().to_str().expect("Expect this to work.");
-    let output = process::Command::new("pdftotext")
-        .arg("-layout")
-        .arg(file)
-        .arg("-")
-        .output()
-        .expect("Failed to execute pdftotext");
-
-    if !output.status.success() {
-        let error = String::from_utf8(output.stderr).expect("Works");
-        Err(Error::PdfToText(error))
+    let file =
+        path.as_ref().to_str().ok_or(Error::PathCannotBeConvertedToStr())?;
+    if file.ends_with(".txt") {
+        let content = std::fs::read_to_string(file)
+            .map_err(Error::CouldNotReadTxtFile)?;
+        parse_string(content)
     } else {
-        let input = String::from_utf8(output.stdout).expect("Works");
-        parse_string(input)
+        let output = process::Command::new("pdftotext")
+            .arg("-layout")
+            .arg(file)
+            .arg("-")
+            .output()
+            .expect("Failed to execute pdftotext");
+
+        if !output.status.success() {
+            let error = String::from_utf8(output.stderr).expect("Works");
+            Err(Error::PdfToText(error))
+        } else {
+            let input = String::from_utf8(output.stdout).expect("Works");
+            parse_string(input)
+        }
     }
 }
 
@@ -89,17 +97,22 @@ pub fn parse_string(input: String) -> Result<desc::Interchange, Error> {
         }
         Err(error) => println!("Error happened"),
         Ok((_, wohoo)) => {
-            for (i, line) in wohoo.iter().enumerate() {
-                println!("{}: {}", i, line)
-            }
+            println!("{}", wohoo)
         }
     }
 
     Err(Error::PdfToText("Wooohooo".to_string()))
 }
 
-fn mig(input: &str) -> ParseResult<&str, Vec<&str>> {
-    map(many_till(line, start_of_toc), |(lines, _)| lines)(input)
+fn mig(input: &str) -> ParseResult<&str, String> {
+    map(
+        tuple((
+            many_till(line, start_of_toc),
+            many_till(line, start_of_message_structure),
+            message_structure,
+        )),
+        |(_, _, structure)| structure,
+    )(input)
 }
 
 fn line(input: &str) -> ParseResult<&str, &str> {
@@ -158,7 +171,7 @@ fn start_of_changelog(input: &str) -> ParseResult<&str, ()> {
 /// footer.
 fn message_structure(input: &str) -> ParseResult<&str, String> {
     let is_relevant = |l: &str| {
-        !l.starts_with("Nachrichtenstruktur")
+        !is_part_of_message_structure_header(l)
             && !is_part_of_footer(l)
             && !l.starts_with("BDEW")
             && l != ""
@@ -175,18 +188,37 @@ fn message_structure(input: &str) -> ParseResult<&str, String> {
         .filter(|l| is_relevant(l))
         .collect::<Vec<_>>();
 
-    let result = filtered_lines.join("\n");
+    let mut result = String::new();
+    for line in filtered_lines {
+        if line.starts_with("0") {
+            result.push('\n');
+            result.push_str(line.as_str());
+        } else {
+            result.push(' ');
+            result.push_str(line.as_str());
+        }
+    }
 
     Ok((input, result))
 }
 
+fn is_part_of_message_structure_header(line: &str) -> bool {
+    let line = line.trim_start();
+    line.starts_with("Nachrichtenstruktur")
+        || line.starts_with("Zähler")
+        || (line.starts_with("Status") && line.contains("MaxWdh"))
+}
+
 fn is_part_of_footer(line: &str) -> bool {
-    let trimmed_line = line.trim_start();
+    let trimmed_line = line.trim();
     trimmed_line.starts_with("Zähler =")
         || trimmed_line.starts_with("Bez =")
         || trimmed_line.starts_with("Nr =")
         || trimmed_line.starts_with("MaxWdh =")
         || trimmed_line.starts_with("EDI@Energy")
+        || trimmed_line.starts_with("Version")
+        || trimmed_line.starts_with("UTILMD-")
+        || trimmed_line == "Strom"
 }
 
 // SEGMENTS
@@ -216,6 +248,7 @@ fn segment_column_headers(input: &str) -> ParseResult<&str, ()> {
             tuple((space0, tag("St"))),
             tuple((space0, tag("MaxWdh"))),
             tuple((space0, tag("St"))),
+            tuple((space0, tag("MaxWdh"))),
             tuple((space0, tag("Ebene"))),
             tuple((space0, tag("Name"))),
         )),
